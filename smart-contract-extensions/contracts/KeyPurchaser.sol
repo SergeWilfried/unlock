@@ -13,7 +13,7 @@ import 'unlock-abi-7/IPublicLockV7.sol';
  * This allows the user to purchase or subscribe to a key with 1 tx (`approve`)
  * or if the token supports it, with 1 signed message (`permit`).
  *
- * The user can remove approval to cancel anytime.
+ * The user can remove the ERC-20 approval to cancel anytime.
  *
  * Risk: if the user transfers or cancels the key, they would naturally expect that also cancels
  * the subscription but it does not. This should be handled by the frontend.
