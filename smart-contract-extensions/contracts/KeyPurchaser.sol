@@ -5,6 +5,7 @@ import '@openzeppelin/upgrades/contracts/Initializable.sol';
 import '@openzeppelin/contracts/utils/Address.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 import '@openzeppelin/contracts/token/ERC20/SafeERC20.sol';
+import '@openzeppelin/contracts/math/SafeMath.sol';
 import 'unlock-abi-7/IPublicLockV7.sol';
 
 /**
@@ -21,6 +22,7 @@ contract KeyPurchaser is Initializable, Stoppable
 {
   using Address for address payable;
   using SafeERC20 for IERC20;
+  using SafeMath for uint;
 
   // set on initialize and cannot change
 
@@ -49,6 +51,12 @@ contract KeyPurchaser is Initializable, Stoppable
    * around cancel and transfer scenarios.
    */
   uint public renewMinFrequency;
+
+  /**
+   * @notice The amount of tokens rewarded from the end user to the msg.sender for enabling this feature.
+   * This is paid with each renewal of the key.
+   */
+  uint public msgSenderReward;
 
   // admin can change these anytime
 
@@ -81,7 +89,8 @@ contract KeyPurchaser is Initializable, Stoppable
     address _admin,
     uint _maxPurchasePrice,
     uint _renewWindow,
-    uint _renewMinFrequency
+    uint _renewMinFrequency,
+    uint _msgSenderReward
   ) public
     initializer()
   {
@@ -90,6 +99,7 @@ contract KeyPurchaser is Initializable, Stoppable
     maxPurchasePrice = _maxPurchasePrice;
     renewWindow = _renewWindow;
     renewMinFrequency = _renewMinFrequency;
+    msgSenderReward = _msgSenderReward;
     approveSpending();
   }
 
@@ -176,6 +186,7 @@ contract KeyPurchaser is Initializable, Stoppable
   ) public view
   {
     uint purchasePrice = _readyToPurchaseFor(_recipient, _referrer, _data);
+    purchasePrice = purchasePrice.add(msgSenderReward);
 
     // It's okay if the lock changes tokenAddress as the ERC-20 approval is specifically
     // the token the endUser wanted to spend
@@ -203,10 +214,15 @@ contract KeyPurchaser is Initializable, Stoppable
     IERC20 token = IERC20(lock.tokenAddress());
 
     uint keyPrice = _readyToPurchaseFor(_recipient, _referrer, _data);
-    if(keyPrice > 0)
+    uint totalCost = keyPrice.add(msgSenderReward);
+    if(totalCost > 0)
     {
       // We don't need safeTransfer as if these do not work the purchase will fail
-      token.transferFrom(_recipient, address(this), keyPrice);
+      token.transferFrom(_recipient, address(this), totalCost);
+      if(msgSenderReward > 0)
+      {
+        token.transfer(msg.sender, msgSenderReward);
+      }
 
       // approve from this contract to the lock is already complete
     }

@@ -45,6 +45,7 @@ contract('keyPurchaser', accounts => {
         keyPrice,
         35,
         0,
+        0,
         {
           from: lockCreator,
         }
@@ -262,6 +263,7 @@ contract('keyPurchaser', accounts => {
         keyPrice,
         15,
         1,
+        0,
         {
           from: lockCreator,
         }
@@ -311,6 +313,7 @@ contract('keyPurchaser', accounts => {
         keyPrice,
         1,
         15,
+        0,
         {
           from: lockCreator,
         }
@@ -360,10 +363,19 @@ contract('keyPurchaser', accounts => {
         keyPrice: 0,
         expirationDuration: 30, // 30 seconds
         from: lockCreator,
+        tokenAddress: dai.address,
       })
-      await keyPurchaser.initialize(freeLock.address, lockCreator, 0, 35, 0, {
-        from: lockCreator,
-      })
+      await keyPurchaser.initialize(
+        freeLock.address,
+        lockCreator,
+        0,
+        35,
+        0,
+        0,
+        {
+          from: lockCreator,
+        }
+      )
     })
 
     it('purchase fails if the lock price increased', async () => {
@@ -391,18 +403,58 @@ contract('keyPurchaser', accounts => {
       it('purchase successful', async () => {
         assert.equal(await freeLock.getHasValidKey(endUser), true)
       })
+    })
+  })
 
-      it('purchase is single use only', async () => {
-        await reverts(
-          keyPurchaser.readyToPurchaseFor(endUser, constants.ZERO_ADDRESS, []),
-          'INSUFFICIENT_ALLOWANCE'
-        )
-        await reverts(
-          keyPurchaser.purchaseFor(endUser, constants.ZERO_ADDRESS, [], {
-            from: otherAccount,
-          })
-        )
+  describe('msgSenderReward', () => {
+    const msgSenderReward = web3.utils.toWei('0.01', 'ether')
+    let endUserBalanceBefore
+    let otherAccountBalanceBefore
+
+    beforeEach(async () => {
+      await keyPurchaser.initialize(
+        lock.address,
+        lockCreator,
+        keyPrice,
+        35,
+        0,
+        msgSenderReward,
+        {
+          from: lockCreator,
+        }
+      )
+
+      await dai.approve(keyPurchaser.address, -1, {
+        from: endUser,
       })
+
+      endUserBalanceBefore = new BigNumber(await dai.balanceOf(endUser))
+      otherAccountBalanceBefore = new BigNumber(
+        await dai.balanceOf(otherAccount)
+      )
+
+      await keyPurchaser.purchaseFor(endUser, constants.ZERO_ADDRESS, [], {
+        from: otherAccount,
+      })
+    })
+
+    it('endUser was charged keyPrice + msgSenderReward', async () => {
+      const balance = new BigNumber(await dai.balanceOf(endUser))
+      assert.equal(
+        balance.toFixed(),
+        endUserBalanceBefore
+          .minus(keyPrice)
+          .minus(msgSenderReward)
+          .toFixed()
+      )
+    })
+
+    it('other account was rewarded with msgSenderReward', async () => {
+      const balance = new BigNumber(await dai.balanceOf(otherAccount))
+      assert.equal(
+        balance.toFixed(),
+        otherAccountBalanceBefore.plus(msgSenderReward).toFixed()
+      )
     })
   })
 })

@@ -31,7 +31,7 @@ contract('keyPurchaserFactory', accounts => {
 
   it('non-lock manager cannot make a purchaser via the factory', async () => {
     await reverts(
-      factory.deployKeyPurchaser(lock.address, keyPrice, 42, 99, {
+      factory.deployKeyPurchaser(lock.address, keyPrice, 42, 99, 0, {
         from: otherAccount,
       }),
       'ONLY_LOCK_MANAGER'
@@ -47,6 +47,7 @@ contract('keyPurchaserFactory', accounts => {
         keyPrice,
         42,
         99,
+        1,
         {
           from: lockCreator,
         }
@@ -58,9 +59,11 @@ contract('keyPurchaserFactory', accounts => {
       const maxPurchasePrice = await purchaser.maxPurchasePrice()
       const renewWindow = await purchaser.renewWindow()
       const renewMinFrequency = await purchaser.renewMinFrequency()
+      const msgSenderReward = await purchaser.msgSenderReward()
       assert.equal(maxPurchasePrice, keyPrice)
       assert.equal(renewWindow, 42)
       assert.equal(renewMinFrequency, 99)
+      assert.equal(msgSenderReward, 1)
     })
 
     it('can read the purchaser address from the factory', async () => {
@@ -73,11 +76,13 @@ contract('keyPurchaserFactory', accounts => {
       const maxPurchasePrice = await purchaser.maxPurchasePrice()
       const renewWindow = await purchaser.renewWindow()
       const renewMinFrequency = await purchaser.renewMinFrequency()
+      const msgSenderReward = await purchaser.msgSenderReward()
       const expectedAddress = await factory.getExpectedAddress(
         lock.address,
         maxPurchasePrice,
         renewWindow,
-        renewMinFrequency
+        renewMinFrequency,
+        msgSenderReward
       )
       assert.equal(expectedAddress, purchaser.address)
     })
@@ -100,9 +105,16 @@ contract('keyPurchaserFactory', accounts => {
       beforeEach(async () => {
         for (let i = 0; i < purchaserCount - 1; i++) {
           // Note: the `+ i` is just to make each option different somehow
-          await factory.deployKeyPurchaser(lock.address, keyPrice, 50, 99 + i, {
-            from: lockCreator,
-          })
+          await factory.deployKeyPurchaser(
+            lock.address,
+            keyPrice,
+            50,
+            99 + i,
+            0,
+            {
+              from: lockCreator,
+            }
+          )
         }
       })
 

@@ -11,10 +11,10 @@ import 'unlock-abi-7/IPublicLockV7.sol';
  * and by creating each purchaser itself, it's a single tx to deploy and initialize and this guarantees
  * a consistent implementation and that it was created by the lock owner.
  */
-contract KeyPurchaserFactory is Clone2Probe
+contract KeyPurchaserFactory
 {
   using Clone2Factory for address;
-  //using Clone2Probe for address; TODO
+  using Clone2Probe for address;
 
   event KeyPurchaserCreated(address indexed forLock, address indexed keyPurchaser);
 
@@ -37,7 +37,8 @@ contract KeyPurchaserFactory is Clone2Probe
     IPublicLockV7 _lock,
     uint _maxKeyPrice,
     uint _renewWindow,
-    uint _renewMinFrequency
+    uint _renewMinFrequency,
+    uint _msgSenderReward
   ) private pure
     returns (bytes32)
   {
@@ -52,12 +53,13 @@ contract KeyPurchaserFactory is Clone2Probe
     IPublicLockV7 _lock,
     uint _maxKeyPrice,
     uint _renewWindow,
-    uint _renewMinFrequency
+    uint _renewMinFrequency,
+    uint _msgSenderReward
   ) external view
     returns (address)
   {
-    bytes32 salt = _getClone2Salt(_lock, _maxKeyPrice, _renewWindow, _renewMinFrequency);
-    return getClone2Address(keyPurchaserTemplate, salt);
+    bytes32 salt = _getClone2Salt(_lock, _maxKeyPrice, _renewWindow, _renewMinFrequency, _msgSenderReward);
+    return keyPurchaserTemplate.getClone2Address(salt);
   }
 
   /**
@@ -67,17 +69,18 @@ contract KeyPurchaserFactory is Clone2Probe
     IPublicLockV7 _lock,
     uint _maxKeyPrice,
     uint _renewWindow,
-    uint _renewMinFrequency
+    uint _renewMinFrequency,
+    uint _msgSenderReward
   ) public
   {
     // This require is not strictly necessary, but helps to maintain trust when surfacing these
     // options on the frontend.
     require(_lock.isLockManager(msg.sender), 'ONLY_LOCK_MANAGER');
 
-    bytes32 salt = _getClone2Salt(_lock, _maxKeyPrice, _renewWindow, _renewMinFrequency);
+    bytes32 salt = _getClone2Salt(_lock, _maxKeyPrice, _renewWindow, _renewMinFrequency, _msgSenderReward);
     address purchaser = keyPurchaserTemplate.createClone2(salt);
 
-    KeyPurchaser(purchaser).initialize(_lock, msg.sender, _maxKeyPrice, _renewWindow, _renewMinFrequency);
+    KeyPurchaser(purchaser).initialize(_lock, msg.sender, _maxKeyPrice, _renewWindow, _renewMinFrequency, _msgSenderReward);
     lockToKeyPurchasers[address(_lock)].push(purchaser);
     emit KeyPurchaserCreated(address(_lock), purchaser);
   }
